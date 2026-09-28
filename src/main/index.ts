@@ -152,6 +152,7 @@ function createWindow() {
     minHeight: 500,
     show: false,
     backgroundColor: '#0a0a0a',
+    icon: app.isPackaged ? undefined : path.join(app.getAppPath(), 'build/icon.png'),
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     trafficLightPosition: { x: 16, y: 16 },
     webPreferences: {
@@ -174,6 +175,8 @@ app.whenReady().then(async () => {
   session.defaultSession.setPermissionRequestHandler((_wc, permission, cb) => cb(permission === 'media'))
   registerIpc()
   buildMenu(() => win)
+  // In dev the Dock shows Electron's icon; use ours (build/icon.png) so rebranding is visible immediately.
+  if (!app.isPackaged && process.platform === 'darwin') app.dock?.setIcon(path.join(app.getAppPath(), 'build/icon.png'))
   applySettings(await store.getSettings())
   createWindow()
   app.on('activate', () => {

@@ -3,3 +3,7 @@ out
 dist
 *.log
 .DS_Store
+
+# Raw assets pulled from Grok Bot.app by scripts/import-grokbot-assets.sh (proprietary; keep local)
+assets/grokbot/
+assets/backup-*/

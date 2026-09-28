@@ -437,3 +437,5 @@ input, textarea, select { font: inherit; color: inherit; }
 .voice-orb { border: 0; cursor: pointer; }
 .card { overflow-wrap: anywhere; }
 .msg-assistant.tools-only { margin-top: -12px; }
+.brand-logo { width: 64px; height: 64px; object-fit: contain; }
+.brand-wordmark { height: 40px; max-width: 260px; object-fit: contain; }

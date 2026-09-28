@@ -3,6 +3,7 @@ import { Bot, Cpu, Info, Mic, RefreshCw, Settings as Gear, Trash2, X } from 'luc
 import type { PullProgress, Settings, ToolInfo } from '@shared/types'
 import { DEFAULT_SYSTEM_PROMPT } from '@shared/defaults'
 import { useApp, type SettingsTab } from '@/lib/store'
+import { brand } from '@/lib/brand'
 
 const TABS: { id: SettingsTab; label: string; icon: ReactNode }[] = [
   { id: 'general', label: 'General', icon: <Gear size={15} /> },
@@ -347,6 +348,7 @@ function About() {
   useEffect(() => void window.grok.appInfo().then(setInfo), [])
   return (
     <>
+      {brand.logo && <img className="brand-logo" src={brand.logo} alt="" style={{ width: 56, height: 56 }} />}
       <h3 style={{ marginTop: 0 }}>GrokBot Local {info && `v${info.version}`}</h3>
       <p className="muted">
         A local-first desktop agent powered by Ollama. Chats, settings and workspaces stay on this machine.

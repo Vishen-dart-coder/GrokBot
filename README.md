@@ -46,6 +46,30 @@ Run any OpenAI-compatible transcription server, such as whisper.cpp:
 
 Then set **Settings → Voice → Speech-to-text server** to `http://127.0.0.1:8080/v1/audio/transcriptions`.
 
+## Branding and assets
+
+All branding can be swapped by replacing files:
+
+| File | Used for |
+|---|---|
+| `build/icon.png` (1024×1024) or `build/icon.icns` | App icon in the Dock, Finder and DMG |
+| `src/renderer/src/assets/brand/logo.(svg\|png\|webp)` | Logo on the home screen and in About |
+| `src/renderer/src/assets/brand/wordmark.(svg\|png\|webp)` | Optional wordmark. When present, it replaces the logo on the home screen. |
+
+**Import the original Grok Bot assets.** Run this on the Mac where `Grok Bot.app` is installed:
+
+```bash
+npm run assets:import                          # reads /Applications/Grok Bot.app
+npm run assets:import -- "/path/to/Grok Bot.app"
+```
+
+The script:
+- sets the app icon (`build/icon.icns` and a 1024 px `build/icon.png`, made with `sips`)
+- copies every image, SVG, font and sound in the bundle into `assets/grokbot/` and lists them in `MANIFEST.txt`
+- picks the best-matching logo and wordmark for the UI
+
+It backs up the previous icon and logo to `assets/backup-*/` first. `assets/grokbot/` is git-ignored because it contains another company's artwork. Keep it local, and replace it with your own before publishing.
+
 ## Install the Mac app
 
 Download the zip for your Mac. Pick **arm64** for Apple Silicon (M1–M4) or **x64** for Intel. Then:

@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Code2, FolderOpen, Globe, PanelLeft, Plus, Server, Sparkles, Terminal } from 'lucide-react'
 import { useApp } from '@/lib/store'
+import { brand } from '@/lib/brand'
 import { Sidebar } from './components/Sidebar'
 import { Composer } from './components/Composer'
 import { ChatView } from './components/ChatView'
@@ -62,6 +63,11 @@ function Home() {
   const greet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
   return (
     <div className="home">
+      {brand.wordmark ? (
+        <img className="brand-wordmark" src={brand.wordmark} alt={brand.name} />
+      ) : (
+        brand.logo && <img className="brand-logo" src={brand.logo} alt={brand.name} />
+      )}
       <h1>
         {greet}
         {settings?.userName ? `, ${settings.userName}` : ''}. What should we work on?
