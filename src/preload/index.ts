@@ -48,6 +48,7 @@ const api: GrokApi = {
   tools: { list: () => ipcRenderer.invoke('tools:list') },
   mcp: { status: () => ipcRenderer.invoke('mcp:status'), onStatus: on('mcp:status') },
   voice: { transcribe: (audio, mime) => ipcRenderer.invoke('voice:transcribe', audio, mime) },
+  onMenu: on('menu'),
   openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
   appInfo: () => ipcRenderer.invoke('app:info'),
   platform: process.platform

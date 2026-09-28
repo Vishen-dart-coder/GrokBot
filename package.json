@@ -15,20 +15,94 @@
     "dist:mac": "npm run build && electron-builder --mac",
     "dist:win": "npm run build && electron-builder --win",
     "dist:linux": "npm run build && electron-builder --linux",
-    "ollama:setup": "bash scripts/setup-ollama.sh"
+    "ollama:setup": "bash scripts/setup-ollama.sh",
+    "dist:mac:zip": "npm run build && electron-builder --mac zip --arm64 --x64 -c.mac.identity=null"
   },
   "build": {
     "appId": "com.serverley.grokbot-local",
     "productName": "GrokBot Local",
+    "copyright": "Copyright © 2026 Serverley",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
     "files": [
-      "out/**/*"
+      "out/**/*",
+      "package.json"
     ],
+    "asarUnpack": [],
     "mac": {
-      "category": "public.app-category.productivity"
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.png",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "darkModeSupport": true,
+      "minimumSystemVersion": "12.0",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "GrokBot Local uses the microphone for dictation and voice mode.",
+        "NSScreenCaptureUsageDescription": "GrokBot Local captures the screen only when you allow the take_screenshot tool.",
+        "NSAppleEventsUsageDescription": "GrokBot Local may run automation scripts you approve."
+      }
+    },
+    "dmg": {
+      "title": "GrokBot Local ${version}",
+      "contents": [
+        {
+          "x": 150,
+          "y": 190
+        },
+        {
+          "x": 390,
+          "y": 190,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ],
+      "window": {
+        "width": 540,
+        "height": 380
+      }
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.png"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "build/icon.png",
+      "category": "Utility"
     }
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.31.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^5.2.0",
+    "electron": "^44.4.5",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^5.0.0",
     "highlight.js": "^11.12.0",
     "katex": "^0.18.9",
     "lucide-react": "^1.48.0",
@@ -40,19 +114,13 @@
     "rehype-katex": "^7.0.1",
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0",
-    "zod": "^4.6.5",
-    "zustand": "^5.0.15"
-  },
-  "devDependencies": {
-    "@types/node": "^26.6.3",
-    "@types/react": "^19.3.0",
-    "@types/react-dom": "^19.3.0",
-    "@vitejs/plugin-react": "^5.2.0",
-    "electron": "^44.4.5",
-    "electron-builder": "^26.15.3",
-    "electron-vite": "^5.0.0",
     "typescript": "^7.0.2",
     "vite": "^7.3.6",
-    "vitest": "^3.2.7"
+    "vitest": "^3.2.7",
+    "zustand": "^5.0.15"
+  },
+  "author": {
+    "name": "Vishen Sharma",
+    "email": "iamvishensharma@gmail.com"
   }
 }

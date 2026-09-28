@@ -7,6 +7,7 @@ import type { AgentEvent, Attachment, McpServerStatus, Settings, ToolInfo } from
 import { Agent } from './agent'
 import { McpManager } from './mcp'
 import { OllamaClient } from './ollama'
+import { buildMenu, inheritShellPath } from './platform'
 import { Store } from './store'
 import { builtinTools } from './tools'
 
@@ -14,6 +15,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // Pin the name so userData is always "<config>/GrokBot Local", however the app is launched.
 app.setName('GrokBot Local')
+inheritShellPath()
 
 let win: BrowserWindow | null = null
 const store = new Store(path.join(app.getPath('userData'), 'data'), os.homedir())
@@ -168,8 +170,10 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  app.setAboutPanelOptions({ applicationName: 'GrokBot Local', applicationVersion: app.getVersion(), copyright: 'Local-first agent powered by Ollama' })
   session.defaultSession.setPermissionRequestHandler((_wc, permission, cb) => cb(permission === 'media'))
   registerIpc()
+  buildMenu(() => win)
   applySettings(await store.getSettings())
   createWindow()
   app.on('activate', () => {

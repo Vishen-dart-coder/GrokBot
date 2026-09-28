@@ -46,6 +46,28 @@ Run any OpenAI-compatible transcription server, such as whisper.cpp:
 
 Then set **Settings → Voice → Speech-to-text server** to `http://127.0.0.1:8080/v1/audio/transcriptions`.
 
+## Install the Mac app
+
+Download the zip for your Mac. Pick **arm64** for Apple Silicon (M1–M4) or **x64** for Intel. Then:
+
+1. Double-click the zip and drag **GrokBot Local.app** into **Applications**.
+2. The build is ad-hoc signed, not signed with an Apple Developer ID, so macOS blocks it the first time.
+   Clear the download quarantine once:
+   ```bash
+   xattr -dr com.apple.quarantine "/Applications/GrokBot Local.app"
+   ```
+   Alternatively, right-click the app, choose **Open**, then **Open** again. On macOS 15+, go to System Settings → Privacy & Security → **Open Anyway**.
+3. If macOS still says the app is "damaged", re-sign it locally:
+   ```bash
+   codesign --force --deep --sign - "/Applications/GrokBot Local.app"
+   ```
+4. Make sure Ollama is running (`npm run ollama:setup` or the Ollama.app), then open GrokBot Local.
+
+**Build it yourself**
+- On a Mac, `npm run dist:mac` produces a `.dmg` and a `.zip` for both architectures in `dist/`.
+- On Linux, `scripts/package-mac-on-linux.sh` cross-builds ad-hoc signed zips. It needs [rcodesign](https://github.com/indygreg/apple-platform-rs).
+- In CI, the **Build macOS app** GitHub Action (`.github/workflows/build-mac.yml`) builds the DMG on a macOS runner. If you add the Apple Developer secrets it lists, it also signs and notarizes the app.
+
 ## Scripts
 
 | Command | Purpose |
@@ -55,7 +77,8 @@ Then set **Settings → Voice → Speech-to-text server** to `http://127.0.0.1:8
 | `npm start` | Run the production build |
 | `npm run typecheck` | TypeScript checks for main, preload and renderer |
 | `npm test` | Unit and integration tests. The agent is tested against a scripted fake Ollama, so no model runs. |
-| `npm run dist:mac` / `dist:win` / `dist:linux` | Package installers with electron-builder |
+| `npm run dist:mac` | macOS `.dmg` + `.zip` (arm64 + x64); run on a Mac |
+| `npm run dist:win` / `dist:linux` | Windows / Linux installers |
 
 ## Architecture
 

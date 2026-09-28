@@ -42,6 +42,7 @@ export interface GrokApi {
   tools: { list(): Promise<ToolInfo[]> }
   mcp: { status(): Promise<McpServerStatus[]>; onStatus(cb: (s: McpServerStatus[]) => void): Unsubscribe }
   voice: { transcribe(audio: ArrayBuffer, mime: string): Promise<string> }
+  onMenu(cb: (action: 'settings' | 'apps' | 'new' | 'search' | 'workspace' | 'sidebar') => void): Unsubscribe
   openExternal(url: string): Promise<void>
   appInfo(): Promise<{ version: string; platform: string; userData: string }>
   platform: string

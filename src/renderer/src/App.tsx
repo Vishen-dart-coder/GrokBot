@@ -95,6 +95,20 @@ export function App() {
     document.documentElement.dataset.theme = resolved
   }, [settings?.theme])
 
+  useEffect(
+    () =>
+      window.grok.onMenu((action) => {
+        const s = useApp.getState()
+        if (action === 'settings') s.setModal('settings', 'general')
+        else if (action === 'apps') s.setModal('apps')
+        else if (action === 'search') s.setModal('search')
+        else if (action === 'new') s.newBot()
+        else if (action === 'sidebar') s.toggleSidebar()
+        else if (action === 'workspace' && s.currentId) void window.grok.workspace.open(s.currentId)
+      }),
+    []
+  )
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey
