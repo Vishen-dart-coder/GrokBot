@@ -35,7 +35,12 @@ jobs:
           EXTRA=""
           if [ -z "$CSC_LINK" ]; then EXTRA="-c.mac.identity=-"; fi
           npm run build
-          npx electron-builder --mac --publish never $EXTRA
+          set -o pipefail
+          if ! npx electron-builder --mac --publish never $EXTRA 2>&1 | tee builder.log; then
+            # Surface the failure as an annotation (readable via the checks API).
+            echo "::error title=electron-builder failed::$(tail -40 builder.log | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"
+            exit 1
+          fi
           ls -lh dist
 
       - uses: actions/upload-artifact@v4
