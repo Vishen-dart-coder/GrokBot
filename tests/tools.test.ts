@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, realpath, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { beforeEach, describe, expect, it } from 'vitest'
@@ -8,7 +8,8 @@ const tool = (name: string) => builtinTools.find((t) => t.name === name)!
 let ctx: ToolContext
 
 beforeEach(async () => {
-  ctx = { workspace: await mkdtemp(path.join(os.tmpdir(), 'grokbot-')), shellTimeoutSec: 10 }
+  // realpath: on macOS the temp dir is a symlink (/var → /private/var) and `pwd` prints the real path
+  ctx = { workspace: await realpath(await mkdtemp(path.join(os.tmpdir(), 'grokbot-'))), shellTimeoutSec: 10 }
 })
 
 describe('workspace sandbox', () => {
