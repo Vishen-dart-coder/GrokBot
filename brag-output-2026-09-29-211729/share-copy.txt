@@ -1,0 +1,1 @@
+Your AI agent now lives on your Mac. GrokBot Local asks before it touches anything, then writes the code, runs it, and shows you the result. Any Ollama model, any MCP app, and your chats stay on your machine. github.com/Vishen-dart-coder/GrokBot
