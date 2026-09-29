@@ -228,7 +228,8 @@ input, textarea, select { font: inherit; color: inherit; }
 .msg-assistant { display: flex; flex-direction: column; gap: 10px; }
 .msg-error { color: var(--danger); font-size: 13px; }
 .msg-actions { display: flex; gap: 2px; opacity: 0; transition: opacity 0.15s; }
-.msg-assistant:hover .msg-actions { opacity: 1; }
+.msg-assistant:hover .msg-actions, .msg-user:hover .msg-actions { opacity: 1; }
+.msg-user .msg-actions { margin-top: 4px; }
 
 .thinking { border-left: 2px solid var(--border-strong); padding-left: 12px; color: var(--text-3); font-size: 13px; white-space: pre-wrap; }
 .thinking summary { cursor: pointer; color: var(--text-2); list-style: none; }
@@ -439,3 +440,7 @@ input, textarea, select { font: inherit; color: inherit; }
 .msg-assistant.tools-only { margin-top: -12px; }
 .brand-logo { width: 64px; height: 64px; object-fit: contain; }
 .brand-wordmark { height: 40px; max-width: 260px; object-fit: contain; }
+
+.model-menu { top: 44px; right: 8px; max-height: 60vh; overflow-y: auto; }
+.model-menu .menu-item .meta { font-size: 11.5px; color: var(--text-3); }
+.model-chip .chev { opacity: 0.6; }

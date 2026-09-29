@@ -18,6 +18,9 @@ Everything runs on your own machine. Your chats, settings and files stay there.
 | **Voice** | The mic button dictates, and the waveform button opens hands-free **voice mode** (talk → transcribe → agent → spoken reply). Speech-to-text uses any local OpenAI-compatible Whisper server. Text-to-speech uses your system voices. |
 | **Rendering** | Markdown, GFM tables, syntax-highlighted code with copy buttons, KaTeX math, Mermaid diagrams, and collapsible "thinking" for reasoning models. |
 | **Search** | ⌘K searches bot titles and message text. |
+| **Chat controls** | Regenerate the last reply, edit and resend your last message, and retry after an error. File → Export Chat as Markdown (⇧⌘E). |
+| **Models** | Switch models from the top-bar menu. Models without tool support fall back to plain chat automatically, with a notice. Long chats are trimmed to fit the context window: old tool output is shortened first, then the oldest turns are dropped. The system prompt and your latest message are always kept. |
+| **Ollama** | If Ollama isn't running, the banner has a **Start Ollama** button. It launches Ollama.app or `ollama serve`, or opens the download page if Ollama isn't installed. |
 | **Settings** | Ollama host, model picker, pull/delete models, temperature, context length, thinking, system prompt, tool toggles, approvals, shell timeout, workspace folder, theme (dark/light/system), voice. |
 
 Shortcuts: `⌘N` new bot · `⌘K` search · `⌘B` toggle sidebar · `⌘,` settings · `Esc` stop.

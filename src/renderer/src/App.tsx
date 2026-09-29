@@ -1,5 +1,5 @@
-import { useEffect } from 'react'
-import { Code2, FolderOpen, Globe, PanelLeft, Plus, Server, Sparkles, Terminal } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Check, ChevronDown, Code2, FolderOpen, Loader2, Settings2, Globe, PanelLeft, Plus, Server, Sparkles, Terminal } from 'lucide-react'
 import { useApp } from '@/lib/store'
 import { brand } from '@/lib/brand'
 import { Sidebar } from './components/Sidebar'
@@ -18,27 +18,85 @@ const SUGGESTIONS = [
 ]
 
 function ModelChip() {
-  const { settings, ollama, setModal } = useApp()
+  const { settings, ollama, models, setModal, updateSettings, refreshOllama } = useApp()
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    void refreshOllama()
+    const close = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false)
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [open, refreshOllama])
+
   return (
-    <button className="model-chip no-drag" onClick={() => setModal('settings', 'model')} title="Ollama model">
-      <span className={`status-dot ${ollama.ok ? 'ok' : ''}`} />
-      {settings?.model || 'Select a model'}
-    </button>
+    <div ref={ref} className="no-drag" style={{ position: 'relative' }}>
+      <button className="model-chip" onClick={() => setOpen((o) => !o)} title="Switch model">
+        <span className={`status-dot ${ollama.ok ? 'ok' : ''}`} />
+        {settings?.model || 'Select a model'}
+        <ChevronDown size={14} className="chev" />
+      </button>
+      {open && (
+        <div className="menu model-menu">
+          <div className="menu-label">{ollama.ok ? 'Installed models' : 'Ollama is not running'}</div>
+          {models.map((m) => (
+            <button
+              key={m.name}
+              className="menu-item"
+              onClick={() => {
+                void updateSettings({ model: m.name })
+                setOpen(false)
+              }}
+            >
+              <span className="grow">
+                {m.name}
+                <div className="meta">{[m.parameterSize, m.quantization].filter(Boolean).join(' · ')}</div>
+              </span>
+              {m.name === settings?.model && <Check size={15} />}
+            </button>
+          ))}
+          <div className="menu-sep" />
+          <button
+            className="menu-item"
+            onClick={() => {
+              setOpen(false)
+              setModal('settings', 'model')
+            }}
+          >
+            <Settings2 size={15} /> <span className="grow">Manage models…</span>
+          </button>
+        </div>
+      )}
+    </div>
   )
 }
 
 function Banners() {
-  const { ollama, settings, setModal, refreshOllama } = useApp()
+  const { ollama, settings, setModal, refreshOllama, startOllama } = useApp()
+  const [starting, setStarting] = useState(false)
+  const [startError, setStartError] = useState<string>()
   if (!settings) return null
   if (!ollama.ok)
     return (
       <div className="banner">
         <Server size={18} />
         <span className="grow">
-          <strong>Ollama isn't running.</strong> Start it with <code>ollama serve</code> or install it from ollama.com. Looking at {settings.ollamaHost}.
+          <strong>Ollama isn't running.</strong> {startError ?? `GrokBot needs it at ${settings.ollamaHost}.`}
         </span>
         <button className="btn" onClick={refreshOllama}>
           Retry
+        </button>
+        <button
+          className="btn primary"
+          disabled={starting}
+          onClick={async () => {
+            setStarting(true)
+            setStartError(await startOllama())
+            setStarting(false)
+          }}
+        >
+          {starting ? <Loader2 size={14} className="spin" /> : null} {starting ? 'Starting…' : 'Start Ollama'}
         </button>
       </div>
     )
@@ -111,6 +169,7 @@ export function App() {
         else if (action === 'new') s.newBot()
         else if (action === 'sidebar') s.toggleSidebar()
         else if (action === 'workspace' && s.currentId) void window.grok.workspace.open(s.currentId)
+        else if (action === 'export' && s.currentId) void window.grok.bots.exportMarkdown(s.currentId)
       }),
     []
   )

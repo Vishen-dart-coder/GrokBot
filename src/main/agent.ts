@@ -3,7 +3,7 @@
 
 import { randomUUID } from 'node:crypto'
 import type { AgentEvent, Attachment, Bot, ChatMessage, Settings, ToolCall, ToolRun } from '@shared/types'
-import type { OllamaClient, OllamaMessage, OllamaToolSpec } from './ollama'
+import type { ChatChunk, OllamaClient, OllamaMessage, OllamaToolSpec } from './ollama'
 import type { Store } from './store'
 import { summarize } from './store'
 import type { ToolDef } from './tools'
@@ -71,6 +71,54 @@ export function toOllamaMessages(bot: Bot, system: string): OllamaMessage[] {
   return out
 }
 
+/** Rough token estimate (~3.5 chars/token for English/code; images ≈ 800 tokens). */
+export function estimateTokens(text: string, images = 0): number {
+  return Math.ceil(text.length / 3.5) + images * 800
+}
+
+const msgTokens = (m: OllamaMessage) =>
+  estimateTokens(m.content + (m.tool_calls ? JSON.stringify(m.tool_calls) : ''), m.images?.length ?? 0) + 4
+
+/**
+ * Keeps a conversation inside the model's context window. Ollama silently drops the *start*
+ * of an over-long prompt (including the system prompt), so we trim deliberately instead:
+ *  1. shrink old tool outputs, 2. drop the oldest turns, always keeping the system prompt
+ *  and the latest user message. Leaves ~25% of the window for the reply.
+ */
+export function fitToContext(messages: OllamaMessage[], contextTokens: number): OllamaMessage[] {
+  const budget = Math.floor(contextTokens * 0.75)
+  const total = (ms: OllamaMessage[]) => ms.reduce((n, m) => n + msgTokens(m), 0)
+  if (total(messages) <= budget) return messages
+
+  const [system, ...rest] = messages
+  const lastUser = rest.map((m) => m.role).lastIndexOf('user')
+  // 1. Truncate tool outputs older than the latest user turn.
+  let body = rest.map((m, i) =>
+    m.role === 'tool' && i < lastUser && m.content.length > 1200
+      ? { ...m, content: m.content.slice(0, 600) + '\n… [output trimmed to save context] …\n' + m.content.slice(-400) }
+      : m
+  )
+  const note = { ...system, content: system.content + '\n\n[Earlier parts of this conversation were omitted to fit the context window.]' }
+  // 2. Drop oldest messages until it fits (never the latest user message onwards).
+  let keepFrom = 0
+  const protectedFrom = Math.max(lastUser, 0)
+  while (keepFrom < protectedFrom && total([note, ...body.slice(keepFrom)]) > budget) keepFrom++
+  // Don't start on a tool result or an assistant turn whose tool results were cut.
+  while (keepFrom < protectedFrom && body[keepFrom].role !== 'user') keepFrom++
+  body = body.slice(keepFrom)
+  // 3. Still too big (a long tool loop in the current turn): shrink all but the two newest tool outputs.
+  if (total([note, ...body]) > budget) {
+    const toolIdx = body.flatMap((m, i) => (m.role === 'tool' ? [i] : []))
+    const keep = new Set(toolIdx.slice(-2))
+    body = body.map((m, i) =>
+      m.role === 'tool' && !keep.has(i) && m.content.length > 600
+        ? { ...m, content: m.content.slice(0, 300) + '\n… [output trimmed to save context] …\n' + m.content.slice(-200) }
+        : m
+    )
+  }
+  return keepFrom > 0 ? [note, ...body] : [system, ...body]
+}
+
 export class Agent {
   private running = new Map<string, AbortController>()
   private approvals = new Map<string, (allow: boolean) => void>()
@@ -106,6 +154,8 @@ export class Agent {
   }
 
   private pendingNames = new Map<string, string>()
+  /** Models that rejected tool calling this session; they get plain chat right away. */
+  private noToolModels = new Set<string>()
 
   private activeTools(settings: Settings): ToolDef[] {
     return this.deps.tools().filter((t) => t.name.startsWith('mcp__') || settings.enabledTools[t.name] !== false)
@@ -124,7 +174,38 @@ export class Agent {
     await store.saveBot(bot)
     emit({ type: 'message', botId, message: userMsg })
     emit({ type: 'bot-updated', bot: summarize(bot) })
+    await this.run(bot)
+  }
 
+  /** Drops everything after the last user message and runs the agent again. */
+  async regenerate(botId: string): Promise<void> {
+    if (this.running.has(botId)) throw new Error('This bot is already working. Stop it first.')
+    const bot = await this.deps.store.getBot(botId)
+    if (!bot) throw new Error(`bot ${botId} not found`)
+    const lastUser = bot.messages.map((m) => m.role).lastIndexOf('user')
+    if (lastUser < 0) return
+    bot.messages = bot.messages.slice(0, lastUser + 1)
+    await this.deps.store.saveBot(bot)
+    await this.run(bot)
+  }
+
+  /** Removes a message and everything after it (used by "edit message"). Returns the removed message. */
+  async rewind(botId: string, messageId: string): Promise<ChatMessage | undefined> {
+    if (this.running.has(botId)) throw new Error('This bot is already working. Stop it first.')
+    const bot = await this.deps.store.getBot(botId)
+    const i = bot?.messages.findIndex((m) => m.id === messageId) ?? -1
+    if (!bot || i < 0) return undefined
+    const removed = bot.messages[i]
+    bot.messages = bot.messages.slice(0, i)
+    bot.updatedAt = Date.now()
+    await this.deps.store.saveBot(bot)
+    this.deps.emit({ type: 'bot-updated', bot: summarize(bot) })
+    return removed
+  }
+
+  private async run(bot: Bot): Promise<void> {
+    const { store, emit } = this.deps
+    const botId = bot.id
     const controller = new AbortController()
     this.running.set(botId, controller)
     try {
@@ -154,6 +235,7 @@ export class Agent {
       function: { name: t.name, description: t.description, parameters: t.parameters }
     }))
     const byName = new Map(tools.map((t) => [t.name, t]))
+    let useTools = toolSpecs.length > 0 && !this.noToolModels.has(model)
 
     for (let step = 0; step < settings.maxAgentSteps; step++) {
       const reply: ChatMessage = { id: randomUUID(), role: 'assistant', content: '', createdAt: Date.now() }
@@ -161,17 +243,42 @@ export class Agent {
       const calls: ToolCall[] = []
 
       try {
-        const stream = ollama.chat(
-          {
-            model,
-            messages: toOllamaMessages(bot, buildSystemPrompt(settings, bot, tools)),
-            tools: toolSpecs.length ? toolSpecs : undefined,
-            think: settings.think || undefined,
-            options: { temperature: settings.temperature, num_ctx: settings.contextLength }
-          },
-          signal
-        )
-        for await (const chunk of stream) {
+        const request = () => {
+          const system = buildSystemPrompt(settings, bot, useTools ? tools : [])
+          const reserve = useTools ? estimateTokens(JSON.stringify(toolSpecs)) : 0
+          return ollama.chat(
+            {
+              model,
+              messages: fitToContext(toOllamaMessages(bot, system), settings.contextLength - reserve),
+              tools: useTools ? toolSpecs : undefined,
+              think: settings.think || undefined,
+              options: { temperature: settings.temperature, num_ctx: settings.contextLength }
+            },
+            signal
+          )
+        }
+        let stream = request()
+        let first: IteratorResult<ChatChunk>
+        try {
+          first = await stream.next()
+        } catch (e) {
+          // Many Ollama models reject requests that include tools. Fall back to plain chat.
+          if (!useTools || !/does not support tools/i.test(String((e as Error)?.message ?? e))) throw e
+          useTools = false
+          this.noToolModels.add(model)
+          emit({
+            type: 'notice',
+            botId: bot.id,
+            text: `${model} doesn't support tool calling, so GrokBot is chatting without tools. Pick a tool-capable model (e.g. qwen3, llama3.1) in Settings → Model to let it act on your computer.`
+          })
+          stream = request()
+          first = await stream.next()
+        }
+        const chunks = (async function* () {
+          if (!first.done) yield first.value
+          yield* stream
+        })()
+        for await (const chunk of chunks) {
           const m = chunk.message
           if (!m) continue
           if (m.content || m.thinking) {
@@ -190,9 +297,11 @@ export class Agent {
       } finally {
         if (calls.length) reply.toolCalls = calls
         if (calls.length) reply.toolRuns = calls.map((c) => ({ callId: c.id, name: c.name, arguments: c.arguments, status: 'running' }))
-        bot.messages.push(reply)
-        await store.saveBot(bot)
-        emit({ type: 'message', botId: bot.id, message: reply })
+        if (reply.content || reply.thinking || calls.length || reply.error) {
+          bot.messages.push(reply)
+          await store.saveBot(bot)
+          emit({ type: 'message', botId: bot.id, message: reply })
+        }
       }
 
       if (!calls.length || reply.error) return

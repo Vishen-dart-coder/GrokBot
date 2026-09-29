@@ -27,6 +27,9 @@ interface State {
   streaming: Record<string, Streaming | undefined>
   running: Record<string, boolean>
   errors: Record<string, string | undefined>
+  notices: Record<string, string | undefined>
+  /** Text to load into the composer (set by "edit message"); the composer clears it. */
+  draft: { text: string; attachments: Attachment[] } | null
   sidebarOpen: boolean
   modal: Modal
   settingsTab: SettingsTab
@@ -43,6 +46,10 @@ interface State {
   ensureBot(): Promise<string>
   send(text: string, attachments: Attachment[]): Promise<void>
   stop(): Promise<void>
+  regenerate(): Promise<void>
+  editMessage(messageId: string): Promise<void>
+  consumeDraft(): void
+  startOllama(): Promise<string | undefined>
   updateSettings(patch: Partial<Settings>): Promise<void>
   renameBot(id: string, title: string): Promise<void>
   togglePin(id: string): Promise<void>
@@ -61,6 +68,8 @@ export const useApp = create<State>((set, get) => ({
   streaming: {},
   running: {},
   errors: {},
+  notices: {},
+  draft: null,
   sidebarOpen: true,
   modal: null,
   settingsTab: 'general',
@@ -104,8 +113,46 @@ export const useApp = create<State>((set, get) => ({
 
   async send(text, attachments) {
     const id = await get().ensureBot()
-    set((s) => ({ running: { ...s.running, [id]: true }, errors: { ...s.errors, [id]: undefined } }))
+    set((s) => ({ running: { ...s.running, [id]: true }, errors: { ...s.errors, [id]: undefined }, notices: { ...s.notices, [id]: undefined } }))
     await api().agent.send(id, text, attachments)
+  },
+
+  async regenerate() {
+    const { currentId: id, bot } = get()
+    if (!id || !bot) return
+    const lastUser = bot.messages.map((m) => m.role).lastIndexOf('user')
+    set((s) => ({
+      bot: s.bot && { ...s.bot, messages: s.bot.messages.slice(0, lastUser + 1) },
+      running: { ...s.running, [id]: true },
+      errors: { ...s.errors, [id]: undefined }
+    }))
+    await api().agent.regenerate(id)
+  },
+
+  async editMessage(messageId) {
+    const id = get().currentId
+    if (!id) return
+    const removed = await api().agent.rewind(id, messageId)
+    if (!removed) return
+    set((s) => ({
+      bot: s.bot && { ...s.bot, messages: s.bot.messages.filter((m) => m.createdAt < removed.createdAt) },
+      errors: { ...s.errors, [id]: undefined },
+      draft: { text: removed.content, attachments: removed.attachments ?? [] }
+    }))
+  },
+
+  consumeDraft() {
+    set({ draft: null })
+  },
+
+  async startOllama() {
+    const res = await api().ollama.start()
+    await get().refreshOllama()
+    if (!res.installed) {
+      void api().openExternal('https://ollama.com/download')
+      return 'Ollama is not installed. The download page has been opened.'
+    }
+    return res.ok ? undefined : res.error
   },
 
   async stop() {
@@ -200,6 +247,8 @@ export const useApp = create<State>((set, get) => ({
             running: { ...s.running, [e.botId]: false },
             streaming: { ...s.streaming, [e.botId]: undefined }
           }
+        case 'notice':
+          return { notices: { ...s.notices, [e.botId]: e.text } }
         case 'error':
           return {
             running: { ...s.running, [e.botId]: false },

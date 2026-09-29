@@ -5,7 +5,7 @@ import { useApp } from '@/lib/store'
 import { Recorder, transcribe } from '@/lib/audio'
 
 export function Composer({ autoFocus }: { autoFocus?: boolean }) {
-  const { currentId, running, send, stop, ensureBot, setVoiceMode } = useApp()
+  const { currentId, running, send, stop, ensureBot, setVoiceMode, draft, consumeDraft } = useApp()
   const [text, setText] = useState('')
   const [atts, setAtts] = useState<Attachment[]>([])
   const [dragging, setDragging] = useState(false)
@@ -26,6 +26,14 @@ export function Composer({ autoFocus }: { autoFocus?: boolean }) {
   useEffect(() => {
     if (autoFocus) ta.current?.focus()
   }, [autoFocus, currentId])
+
+  useEffect(() => {
+    if (!draft) return
+    setText(draft.text)
+    setAtts(draft.attachments)
+    consumeDraft()
+    ta.current?.focus()
+  }, [draft, consumeDraft])
 
   const submit = async () => {
     const value = text.trim()

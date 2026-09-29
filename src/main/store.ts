@@ -19,6 +19,28 @@ export function summarize(bot: Bot): BotSummary {
   return { ...rest, preview: last?.content.slice(0, 140) ?? '' }
 }
 
+/** Renders a bot's conversation as Markdown (for "Export chat"). */
+export function toMarkdown(bot: Bot): string {
+  const out = [`# ${bot.title}`, '', `_Exported from GrokBot Local · ${new Date(bot.updatedAt).toLocaleString()}_`, '']
+  for (const m of bot.messages) {
+    if (m.role === 'user') {
+      out.push('## You', '', m.content)
+      for (const a of m.attachments ?? []) out.push(`- 📎 ${a.name}`)
+      out.push('')
+    } else if (m.role === 'assistant') {
+      if (!m.content && !m.toolRuns?.length) continue
+      out.push('## GrokBot', '')
+      if (m.content) out.push(m.content, '')
+      for (const r of m.toolRuns ?? []) {
+        out.push(`<details><summary>🔧 ${r.name} — ${r.status}</summary>`, '', '```json', JSON.stringify(r.arguments, null, 2), '```')
+        if (r.output) out.push('', '```', r.output.length > 4000 ? r.output.slice(0, 4000) + '\n…' : r.output, '```')
+        out.push('', '</details>', '')
+      }
+    }
+  }
+  return out.join('\n').trimEnd() + '\n'
+}
+
 export class Store {
   private settingsCache?: Settings
   private bots = new Map<string, Bot>()

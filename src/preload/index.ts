@@ -17,6 +17,7 @@ const api: GrokApi = {
   ollama: {
     status: () => ipcRenderer.invoke('ollama:status'),
     models: () => ipcRenderer.invoke('ollama:models'),
+    start: () => ipcRenderer.invoke('ollama:start'),
     pull: (model) => ipcRenderer.invoke('ollama:pull', model),
     remove: (model) => ipcRenderer.invoke('ollama:delete', model),
     onPullProgress: on('ollama:pull-progress')
@@ -27,11 +28,14 @@ const api: GrokApi = {
     create: () => ipcRenderer.invoke('bots:create'),
     update: (id, patch) => ipcRenderer.invoke('bots:update', id, patch),
     remove: (id) => ipcRenderer.invoke('bots:delete', id),
-    search: (q) => ipcRenderer.invoke('bots:search', q)
+    search: (q) => ipcRenderer.invoke('bots:search', q),
+    exportMarkdown: (id) => ipcRenderer.invoke('bots:export', id)
   },
   agent: {
     send: (botId, text, atts) => ipcRenderer.invoke('agent:send', botId, text, atts),
     stop: (botId) => ipcRenderer.invoke('agent:stop', botId),
+    regenerate: (botId) => ipcRenderer.invoke('agent:regenerate', botId),
+    rewind: (botId, messageId) => ipcRenderer.invoke('agent:rewind', botId, messageId),
     approve: (botId, callId, allow, always) => ipcRenderer.invoke('agent:approve', botId, callId, allow, always),
     isRunning: (botId) => ipcRenderer.invoke('agent:running', botId),
     onEvent: on('agent:event')

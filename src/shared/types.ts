@@ -129,6 +129,7 @@ export type AgentEvent =
   | { type: 'approval'; botId: string; messageId: string; run: ToolRun }
   | { type: 'done'; botId: string }
   | { type: 'error'; botId: string; error: string }
+  | { type: 'notice'; botId: string; text: string }
   | { type: 'bot-updated'; bot: BotSummary }
 
 export interface PullProgress {

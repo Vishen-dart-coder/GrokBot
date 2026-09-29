@@ -1,14 +1,15 @@
 import { app, BrowserWindow, desktopCapturer, dialog, ipcMain, nativeTheme, screen, session, shell } from 'electron'
-import { promises as fs } from 'node:fs'
+import { existsSync, promises as fs } from 'node:fs'
+import { spawn } from 'node:child_process'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { AgentEvent, Attachment, McpServerStatus, Settings, ToolInfo } from '@shared/types'
+import type { AgentEvent, Attachment, McpServerStatus, OllamaStatus, Settings, ToolInfo } from '@shared/types'
 import { Agent } from './agent'
 import { McpManager } from './mcp'
 import { OllamaClient } from './ollama'
 import { buildMenu, inheritShellPath } from './platform'
-import { Store } from './store'
+import { Store, toMarkdown } from './store'
 import { builtinTools } from './tools'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -59,6 +60,35 @@ async function importFile(botId: string, src: string): Promise<Attachment> {
   return { name, path: path.relative(bot.workspace, dest), mime, size, base64 }
 }
 
+function findOnPath(bin: string): string | undefined {
+  for (const dir of (process.env.PATH ?? '').split(path.delimiter)) {
+    const full = path.join(dir, bin)
+    if (existsSync(full)) return full
+  }
+  return undefined
+}
+
+/** Starts a local Ollama server if it isn't running (Ollama.app on macOS, else `ollama serve`). */
+async function startOllama(): Promise<OllamaStatus & { installed: boolean }> {
+  const current = await ollama.status()
+  if (current.ok) return { ...current, installed: true }
+  const { ollamaHost } = await store.getSettings()
+  if (!/\/\/(127\.0\.0\.1|localhost|\[::1\])(:|\/|$)/.test(ollamaHost)) {
+    return { ok: false, installed: true, error: `Ollama host ${ollamaHost} is remote; start it on that machine.` }
+  }
+  const macApp = ['/Applications/Ollama.app', path.join(os.homedir(), 'Applications/Ollama.app')].find((p) => existsSync(p))
+  const bin = findOnPath(process.platform === 'win32' ? 'ollama.exe' : 'ollama')
+  if (process.platform === 'darwin' && macApp) spawn('open', ['-a', macApp], { detached: true, stdio: 'ignore' }).unref()
+  else if (bin) spawn(bin, ['serve'], { detached: true, stdio: 'ignore' }).unref()
+  else return { ok: false, installed: false, error: 'Ollama is not installed.' }
+  for (let i = 0; i < 40; i++) {
+    await new Promise((r) => setTimeout(r, 500))
+    const st = await ollama.status()
+    if (st.ok) return { ...st, installed: true }
+  }
+  return { ok: false, installed: true, error: 'Ollama did not start within 20 seconds.' }
+}
+
 function applySettings(s: Settings) {
   ollama.setHost(s.ollamaHost)
   nativeTheme.themeSource = s.theme
@@ -75,6 +105,7 @@ function registerIpc() {
 
   ipcMain.handle('ollama:status', () => ollama.status())
   ipcMain.handle('ollama:models', () => ollama.listModels())
+  ipcMain.handle('ollama:start', () => startOllama())
   ipcMain.handle('ollama:delete', (_e, model: string) => ollama.deleteModel(model))
   ipcMain.handle('ollama:pull', async (_e, model: string) => {
     try {
@@ -93,11 +124,28 @@ function registerIpc() {
     agent.stop(id)
     return store.deleteBot(id)
   })
+  ipcMain.handle('bots:export', async (_e, id: string) => {
+    const bot = await store.getBot(id)
+    if (!bot) return null
+    const safe = bot.title.replace(/[\\/:*?"<>|]+/g, '-').slice(0, 80) || 'chat'
+    const res = await dialog.showSaveDialog(win!, {
+      defaultPath: path.join(app.getPath('documents'), `${safe}.md`),
+      filters: [{ name: 'Markdown', extensions: ['md'] }]
+    })
+    if (res.canceled || !res.filePath) return null
+    await fs.writeFile(res.filePath, toMarkdown(bot), 'utf8')
+    shell.showItemInFolder(res.filePath)
+    return res.filePath
+  })
   ipcMain.handle('bots:search', (_e, q: string) => store.search(q))
 
   ipcMain.handle('agent:send', (_e, botId: string, text: string, atts: Attachment[]) => {
     void agent.send(botId, text, atts).catch((err) => send('agent:event', { type: 'error', botId, error: String(err?.message ?? err) }))
   })
+  ipcMain.handle('agent:regenerate', (_e, botId: string) => {
+    void agent.regenerate(botId).catch((err) => send('agent:event', { type: 'error', botId, error: String(err?.message ?? err) }))
+  })
+  ipcMain.handle('agent:rewind', (_e, botId: string, messageId: string) => agent.rewind(botId, messageId))
   ipcMain.handle('agent:stop', (_e, botId: string) => agent.stop(botId))
   ipcMain.handle('agent:approve', (_e, botId: string, callId: string, allow: boolean, always: boolean) =>
     agent.respondApproval(botId, callId, allow, always)

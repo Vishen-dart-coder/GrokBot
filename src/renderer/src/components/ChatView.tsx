@@ -1,16 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
-import { AlertTriangle, Brain, ChevronDown, ChevronRight, FileText, Terminal } from 'lucide-react'
+import { AlertTriangle, Brain, ChevronDown, ChevronRight, FileText, Info, Pencil, RotateCcw, Terminal } from 'lucide-react'
 import type { ChatMessage, ToolRun } from '@shared/types'
 import { useApp } from '@/lib/store'
 import { CopyButton, Markdown } from './Markdown'
 
 export function ChatView() {
-  const { bot, streaming, running, errors } = useApp()
+  const { bot, streaming, running, errors, notices, regenerate, editMessage } = useApp()
   const scroller = useRef<HTMLDivElement>(null)
   const stick = useRef(true)
   const live = bot ? streaming[bot.id] : undefined
   const isRunning = bot ? running[bot.id] : false
   const error = bot ? errors[bot.id] : undefined
+  const notice = bot ? notices[bot.id] : undefined
 
   useEffect(() => {
     const el = scroller.current
@@ -23,6 +24,8 @@ export function ChatView() {
 
   if (!bot) return null
   const visible = bot.messages.filter((m) => m.role !== 'tool' && m.role !== 'system')
+  const lastUserId = [...visible].reverse().find((m) => m.role === 'user')?.id
+  const lastId = visible.at(-1)?.id
 
   return (
     <div
@@ -34,7 +37,19 @@ export function ChatView() {
       }}
     >
       <div className="chat">
-        {visible.map((m) => (m.role === 'user' ? <UserMessage key={m.id} m={m} /> : <AssistantMessage key={m.id} m={m} />))}
+        {notice && (
+          <div className="banner">
+            <Info size={16} />
+            <span className="grow">{notice}</span>
+          </div>
+        )}
+        {visible.map((m) =>
+          m.role === 'user' ? (
+            <UserMessage key={m.id} m={m} onEdit={!isRunning && m.id === lastUserId ? () => editMessage(m.id) : undefined} />
+          ) : (
+            <AssistantMessage key={m.id} m={m} onRegenerate={!isRunning && m.id === lastId ? regenerate : undefined} />
+          )
+        )}
         {live && (
           <div className="msg-assistant">
             {live.thinking && <Thinking text={live.thinking} open />}
@@ -46,6 +61,11 @@ export function ChatView() {
           <div className="banner error">
             <AlertTriangle size={16} color="var(--danger)" />
             <span className="grow">{error}</span>
+            {!isRunning && (
+              <button className="btn" onClick={regenerate}>
+                <RotateCcw size={14} /> Retry
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -53,7 +73,7 @@ export function ChatView() {
   )
 }
 
-function UserMessage({ m }: { m: ChatMessage }) {
+function UserMessage({ m, onEdit }: { m: ChatMessage; onEdit?: () => void }) {
   return (
     <div className="msg-user">
       {!!m.attachments?.length && (
@@ -70,11 +90,19 @@ function UserMessage({ m }: { m: ChatMessage }) {
         </div>
       )}
       <div className="bubble">{m.content}</div>
+      <div className="msg-actions" style={{ justifyContent: 'flex-end' }}>
+        <CopyButton text={m.content} />
+        {onEdit && (
+          <button className="icon-btn sm" title="Edit and resend" onClick={onEdit}>
+            <Pencil size={14} />
+          </button>
+        )}
+      </div>
     </div>
   )
 }
 
-function AssistantMessage({ m }: { m: ChatMessage }) {
+function AssistantMessage({ m, onRegenerate }: { m: ChatMessage; onRegenerate?: () => void }) {
   const toolsOnly = !m.content && !m.thinking && !!m.toolRuns?.length
   return (
     <div className={`msg-assistant ${toolsOnly ? 'tools-only' : ''}`}>
@@ -82,9 +110,14 @@ function AssistantMessage({ m }: { m: ChatMessage }) {
       {m.content && <Markdown text={m.content} />}
       {m.toolRuns?.map((r) => <ToolCard key={r.callId} run={r} messageId={m.id} />)}
       {m.error && <div className="msg-error">{m.error}</div>}
-      {m.content && (
+      {(m.content || onRegenerate) && (
         <div className="msg-actions">
-          <CopyButton text={m.content} />
+          {m.content && <CopyButton text={m.content} />}
+          {onRegenerate && (
+            <button className="icon-btn sm" title="Regenerate" onClick={onRegenerate}>
+              <RotateCcw size={14} />
+            </button>
+          )}
         </div>
       )}
     </div>

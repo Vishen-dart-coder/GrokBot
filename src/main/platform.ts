@@ -57,6 +57,7 @@ export function buildMenu(getWin: () => BrowserWindow | null) {
         { label: 'New Bot', accelerator: 'CmdOrCtrl+N', click: send('new') },
         { label: 'Search…', accelerator: 'CmdOrCtrl+K', click: send('search') },
         { label: 'Open Workspace Folder', accelerator: 'CmdOrCtrl+Shift+O', click: send('workspace') },
+        { label: 'Export Chat as Markdown…', accelerator: 'CmdOrCtrl+Shift+E', click: send('export') },
         { type: 'separator' },
         isMac ? { role: 'close' } : { role: 'quit' }
       ]
