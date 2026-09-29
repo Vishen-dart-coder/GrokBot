@@ -7,3 +7,11 @@ dist
 # Raw assets pulled from Grok Bot.app by scripts/import-grokbot-assets.sh (proprietary; keep local)
 assets/grokbot/
 assets/backup-*/
+
+# /brag intermediates (deliverables + render scripts are committed)
+brag-output*/work/node_modules/
+brag-output*/work/*.png
+brag-output*/work/sheet/
+brag-output*/work/chk/
+brag-output*/work/video.html
+brag-output*/work/soundtrack.wav

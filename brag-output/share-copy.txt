@@ -1,0 +1,1 @@
+GrokBot Local is an AI agent that lives on your Mac. Ask for something and it writes the file, runs it, and shows you the result, but only after it asks permission. Works with any Ollama model, plugs into MCP apps, and your chats stay on your machine. github.com/Vishen-dart-coder/GrokBot
