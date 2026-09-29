@@ -44,3 +44,24 @@ Durations: 3.0 + 3.0 + 4.5 + 3.5 + 3.5 + 3.5 = **21.0 s**.
 
 ## Sound
 Original music synthesized for this video: 120 BPM in A minor, with the progression Am – F – C – G. It has a soft kick, closed hats, sub bass, a warm pad and a pluck arpeggio from scene 4 onward. The sound effects use the same key and the same reverb as the music, and sit about 10 dB under it. The key ticks are very quiet.
+
+## Narration (added): Kokoro v1.0, voice `af_heart`
+The narration adds to the visuals rather than reading the captions aloud. "Ollama" is spelled "Oh-llama" in the script so Kokoro says *oh-LAH-ma*.
+
+| Time | Line |
+|---|---|
+| 0.40–3.17 | This is GrokBot. It runs right on your Mac. |
+| 3.50–4.95 | Just tell it what you need… |
+| 6.50–9.40 | …and before it touches a single file, it checks with you. |
+| 10.60–13.71 | Then it writes the code, runs it, and shows you what happened. |
+| 14.30–17.44 | Pick any Ollama model. Plug in the tools you love. |
+| 17.90–20.10 | GrokBot Local. Free, on GitHub. |
+
+**Mix:**
+- **Voice processing:** a high-pass at 90 Hz, 3:1 compression, a +2 dB presence lift at 3.5 kHz and a short room echo. The voice sits about 10 dB above the music.
+- **Ducking:** the music is ducked by a sidechain compressor (threshold 0.03, ratio 3, 400 ms release).
+- **Master:** loudness-normalized to -14 LUFS with a true peak of -1.5 dB.
+
+`brag-music-only.mp4` keeps the version without narration.
+
+**Regenerate:** `python work/voice.py <kokoro-model-dir> af_heart` (needs `kokoro-onnx`, `kokoro-v1.0.onnx` and `voices-v1.0.bin`).
