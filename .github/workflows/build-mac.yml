@@ -33,7 +33,11 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.MAC_CERT_P12_BASE64 != '' }}
         run: |
           EXTRA=""
-          if [ -z "$CSC_LINK" ]; then EXTRA="-c.mac.identity=-"; fi
+          # Missing secrets arrive as empty strings; electron-builder would treat CSC_LINK="" as a path.
+          for v in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+            [ -z "${!v}" ] && unset "$v"
+          done
+          if [ -z "${CSC_LINK:-}" ]; then EXTRA="-c.mac.identity=-"; fi
           npm run build
           set -o pipefail
           if ! npx electron-builder --mac --publish never $EXTRA 2>&1 | tee builder.log; then
